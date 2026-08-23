@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import type { QuestionSet } from "@/lib/questions";
+import { BASE_PATH } from "@/lib/basePath";
 
 const CIRCLED = ["①", "②", "③", "④", "⑤"] as const;
 
@@ -61,7 +62,7 @@ export default function QuizRunner({ data }: { data: QuestionSet }) {
       {question.image && (
         // eslint-disable-next-line @next/next/no-img-element
         <img
-          src={question.image}
+          src={`${BASE_PATH}${question.image}`}
           alt={`問${question.number}の図`}
           className="mb-4 w-full rounded border border-zinc-200 dark:border-zinc-800"
         />
