@@ -6,6 +6,13 @@
 - スタック: Next.js (Vercelデプロイ想定)
 - データ: 過去問PDFをリポジトリに取り込み、構造化データ(JSON)へ書き起こして出題
 
+## 開発
+
+```bash
+npm install
+npm run dev
+```
+
 ## 開発状況
 
 現在準備中。
