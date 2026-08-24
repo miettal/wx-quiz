@@ -15,6 +15,17 @@ export default function Home() {
       <p className="mb-6 text-sm text-zinc-500">
         学科試験(一般知識・専門知識)の過去問を出題します。
       </p>
+
+      <Link
+        href="/practice"
+        className="mb-6 block rounded-lg border border-blue-200 bg-blue-50 p-4 hover:border-blue-400 dark:border-blue-900 dark:bg-blue-950"
+      >
+        <h2 className="mb-1 font-semibold">演習モード</h2>
+        <p className="text-sm text-zinc-500">
+          全回・全科目から単元を選んでランダム出題。単問短答(正誤一問一答)にも対応。
+        </p>
+      </Link>
+
       <ul className="space-y-4">
         {rounds.map((round) => {
           const subjects = getAvailableSubjects(round);
