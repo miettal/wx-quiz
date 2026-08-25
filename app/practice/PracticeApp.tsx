@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
 import type { FlatQuestion } from "@/lib/questions";
 import { CATEGORIES, type Subject } from "@/lib/categories";
@@ -39,6 +39,7 @@ type PracticeItem =
       label: string;
       text: string;
       correct: boolean;
+      correctedText?: string;
     };
 
 type Stats = Record<string, { correct: number; total: number }>;
@@ -55,6 +56,37 @@ function shuffle<T>(arr: T[]): T[] {
 function pct(correct: number, total: number): string {
   if (total === 0) return "-";
   return `${Math.round((correct / total) * 100)}%`;
+}
+
+const CORRECTION_PATTERN = /\{\{(.+?)→(.+?)\}\}/g;
+
+function renderCorrectedText(text: string) {
+  const nodes: ReactNode[] = [];
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+  let key = 0;
+  CORRECTION_PATTERN.lastIndex = 0;
+  while ((match = CORRECTION_PATTERN.exec(text)) !== null) {
+    if (match.index > lastIndex) {
+      nodes.push(text.slice(lastIndex, match.index));
+    }
+    nodes.push(
+      <del key={`del-${key}`} className="text-red-500 decoration-red-500">
+        {match[1]}
+      </del>,
+    );
+    nodes.push(
+      <strong key={`ins-${key}`} className="text-green-700 dark:text-green-400">
+        {match[2]}
+      </strong>,
+    );
+    key += 1;
+    lastIndex = match.index + match[0].length;
+  }
+  if (lastIndex < text.length) {
+    nodes.push(text.slice(lastIndex));
+  }
+  return nodes;
 }
 
 export default function PracticeApp({ questions }: { questions: FlatQuestion[] }) {
@@ -121,6 +153,7 @@ export default function PracticeApp({ questions }: { questions: FlatQuestion[] }
             label: s.label,
             text: s.text,
             correct: s.correct,
+            correctedText: s.correctedText,
           })),
         ),
     [questions, subjects, categories],
@@ -168,7 +201,13 @@ export default function PracticeApp({ questions }: { questions: FlatQuestion[] }
   }
 
   function start() {
-    setStats({});
+    const initialStats: Stats = {};
+    availableCategories
+      .filter((c) => categories.has(c.category))
+      .forEach((c) => {
+        initialStats[c.category] = { correct: 0, total: 0 };
+      });
+    setStats(initialStats);
     setOverall({ correct: 0, total: 0 });
     const shuffled = shuffle(pool);
     setCurrent(shuffled[0] ?? null);
@@ -389,107 +428,120 @@ export default function PracticeApp({ questions }: { questions: FlatQuestion[] }
   const categoryEntries = Object.entries(stats).sort(([a], [b]) => a.localeCompare(b, "ja"));
 
   return (
-    <main className="mx-auto w-full max-w-2xl flex-1 p-6">
-      <div className="mb-3 flex items-center justify-between text-sm text-zinc-500">
-        <span>
-          全体: {overall.correct} / {overall.total} ({pct(overall.correct, overall.total)})
-        </span>
-        <button type="button" onClick={finish} className="text-blue-600 underline">
-          終了して結果を見る
-        </button>
-      </div>
-
-      {categoryEntries.length > 0 && (
-        <div className="mb-4 flex flex-wrap gap-2 text-xs text-zinc-600 dark:text-zinc-400">
-          {categoryEntries.map(([cat, s]) => (
-            <span
-              key={cat}
-              className="rounded-full border border-zinc-200 px-2 py-1 dark:border-zinc-800"
-            >
-              {cat}: {s.correct}/{s.total} ({pct(s.correct, s.total)})
-            </span>
-          ))}
-        </div>
-      )}
-
-      <div className="mb-3 text-xs text-zinc-500">
-        第{current.round}回 {SUBJECT_LABELS[current.subject]} 問{current.questionNumber}
-        {current.kind === "tf" && ` (${current.label})`} ／ {current.category}
-      </div>
-
-      {current.kind === "choice" ? (
-        <>
-          <p className="mb-4 whitespace-pre-wrap leading-relaxed">{current.text}</p>
-          {current.image && (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={`${BASE_PATH}${current.image}`}
-              alt={`問${current.questionNumber}の図`}
-              className="mb-4 w-full rounded border border-zinc-200 dark:border-zinc-800"
-            />
-          )}
-          <ul className="mb-6 space-y-2">
-            {current.choices.map((choice, i) => {
-              const choiceNumber = i + 1;
-              const isSelected = selected === choiceNumber;
-              const isCorrect = choiceNumber === current.answerIndex;
-              let style = "border-zinc-300 dark:border-zinc-700";
-              if (selected !== null) {
-                if (isCorrect) style = "border-green-500 bg-green-50 dark:bg-green-950";
-                else if (isSelected) style = "border-red-500 bg-red-50 dark:bg-red-950";
-              }
-              return (
-                <li key={choiceNumber}>
-                  <button
-                    type="button"
-                    onClick={() => answer(choiceNumber)}
-                    disabled={selected !== null}
-                    className={`w-full rounded border px-3 py-2 text-left ${style}`}
-                  >
-                    {CIRCLED[i]} {choice}
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
-        </>
-      ) : (
-        <>
-          <p className="mb-6 whitespace-pre-wrap leading-relaxed">{current.text}</p>
-          <div className="mb-6 flex gap-3">
-            {[true, false].map((v) => {
-              const isSelected = selected === v;
-              const isCorrect = v === current.correct;
-              let style = "border-zinc-300 dark:border-zinc-700";
-              if (selected !== null) {
-                if (isCorrect) style = "border-green-500 bg-green-50 dark:bg-green-950";
-                else if (isSelected) style = "border-red-500 bg-red-50 dark:bg-red-950";
-              }
-              return (
-                <button
-                  key={String(v)}
-                  type="button"
-                  onClick={() => answer(v)}
-                  disabled={selected !== null}
-                  className={`flex-1 rounded border px-3 py-3 text-lg font-medium ${style}`}
-                >
-                  {v ? "正" : "誤"}
-                </button>
-              );
-            })}
+    <div className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 p-6 sm:flex-row">
+      <aside className="w-full shrink-0 sm:w-56">
+        <div className="sm:sticky sm:top-6">
+          <div className="mb-3">
+            <div className="text-xs text-zinc-500">全体正答率</div>
+            <div className="text-lg font-semibold">
+              {overall.correct} / {overall.total} ({pct(overall.correct, overall.total)})
+            </div>
           </div>
-        </>
-      )}
+          <div className="space-y-1">
+            {categoryEntries.map(([cat, s]) => (
+              <div key={cat} className="flex items-baseline justify-between gap-2 text-xs">
+                <span className="text-zinc-600 dark:text-zinc-400">{cat}</span>
+                <span className="whitespace-nowrap text-zinc-500">
+                  {s.correct}/{s.total} ({pct(s.correct, s.total)})
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </aside>
 
-      {selected !== null && (
-        <button
-          type="button"
-          onClick={next}
-          className="rounded bg-blue-600 px-4 py-2 text-white hover:bg-blue-700"
-        >
-          次の問題
-        </button>
-      )}
-    </main>
+      <main className="min-w-0 flex-1">
+        <div className="mb-3 flex justify-end text-sm">
+          <button type="button" onClick={finish} className="text-blue-600 underline">
+            終了して結果を見る
+          </button>
+        </div>
+
+        <div className="mb-3 text-xs text-zinc-500">
+          第{current.round}回 {SUBJECT_LABELS[current.subject]} 問{current.questionNumber}
+          {current.kind === "tf" && ` (${current.label})`} ／ {current.category}
+        </div>
+
+        {current.kind === "choice" ? (
+          <>
+            <p className="mb-4 whitespace-pre-wrap leading-relaxed">{current.text}</p>
+            {current.image && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={`${BASE_PATH}${current.image}`}
+                alt={`問${current.questionNumber}の図`}
+                className="mb-4 w-full rounded border border-zinc-200 dark:border-zinc-800"
+              />
+            )}
+            <ul className="mb-6 space-y-2">
+              {current.choices.map((choice, i) => {
+                const choiceNumber = i + 1;
+                const isSelected = selected === choiceNumber;
+                const isCorrect = choiceNumber === current.answerIndex;
+                let style = "border-zinc-300 dark:border-zinc-700";
+                if (selected !== null) {
+                  if (isCorrect) style = "border-green-500 bg-green-50 dark:bg-green-950";
+                  else if (isSelected) style = "border-red-500 bg-red-50 dark:bg-red-950";
+                }
+                return (
+                  <li key={choiceNumber}>
+                    <button
+                      type="button"
+                      onClick={() => answer(choiceNumber)}
+                      disabled={selected !== null}
+                      className={`w-full rounded border px-3 py-2 text-left ${style}`}
+                    >
+                      {CIRCLED[i]} {choice}
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          </>
+        ) : (
+          <>
+            <p className="mb-6 whitespace-pre-wrap leading-relaxed">{current.text}</p>
+            <div className="mb-6 flex gap-3">
+              {[true, false].map((v) => {
+                const isSelected = selected === v;
+                const isCorrect = v === current.correct;
+                let style = "border-zinc-300 dark:border-zinc-700";
+                if (selected !== null) {
+                  if (isCorrect) style = "border-green-500 bg-green-50 dark:bg-green-950";
+                  else if (isSelected) style = "border-red-500 bg-red-50 dark:bg-red-950";
+                }
+                return (
+                  <button
+                    key={String(v)}
+                    type="button"
+                    onClick={() => answer(v)}
+                    disabled={selected !== null}
+                    className={`flex-1 rounded border px-3 py-3 text-lg font-medium ${style}`}
+                  >
+                    {v ? "正" : "誤"}
+                  </button>
+                );
+              })}
+            </div>
+            {selected !== null && !current.correct && current.correctedText && (
+              <div className="mb-6 rounded border border-zinc-200 bg-zinc-50 p-3 text-sm leading-relaxed dark:border-zinc-800 dark:bg-zinc-900">
+                <div className="mb-1 text-xs font-medium text-zinc-500">正しくは</div>
+                {renderCorrectedText(current.correctedText)}
+              </div>
+            )}
+          </>
+        )}
+
+        {selected !== null && (
+          <button
+            type="button"
+            onClick={next}
+            className="rounded bg-blue-600 px-4 py-2 text-white hover:bg-blue-700"
+          >
+            次の問題
+          </button>
+        )}
+      </main>
+    </div>
   );
 }

@@ -5,6 +5,7 @@ export type Statement = {
   label: string;
   text: string;
   correct: boolean;
+  correctedText?: string;
 };
 
 export type Question = {
