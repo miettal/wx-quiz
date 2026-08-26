@@ -2,7 +2,7 @@
 
 import { useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
-import type { FlatQuestion } from "@/lib/questions";
+import type { FlatQuestion, Match } from "@/lib/questions";
 import { CATEGORIES, type Subject } from "@/lib/categories";
 import { BASE_PATH } from "@/lib/basePath";
 
@@ -28,6 +28,7 @@ type PracticeItem =
       image?: string;
       choices: string[];
       answerIndex: number;
+      matches?: Match[];
     }
   | {
       kind: "tf";
@@ -128,36 +129,54 @@ export default function PracticeApp({ questions }: { questions: FlatQuestion[] }
           image: q.image,
           choices: q.choices,
           answerIndex: q.answer,
+          matches: q.matches,
         })),
     [questions, subjects, categories],
   );
 
-  const tfPool = useMemo<PracticeItem[]>(
-    () =>
-      questions
-        .filter(
-          (q) =>
-            subjects.has(q.subject as Subject) &&
-            !!q.category &&
-            categories.has(q.category) &&
-            (q.statements?.length ?? 0) > 0,
-        )
-        .flatMap((q) =>
-          q.statements!.map((s) => ({
-            kind: "tf" as const,
-            key: `${q.round}-${q.subject}-${q.number}-${s.label}`,
-            round: q.round,
-            subject: q.subject as Subject,
-            category: q.category!,
-            questionNumber: q.number,
-            label: s.label,
-            text: s.text,
-            correct: s.correct,
-            correctedText: s.correctedText,
-          })),
-        ),
-    [questions, subjects, categories],
-  );
+  const tfPool = useMemo<PracticeItem[]>(() => {
+    const inScope = questions.filter(
+      (q) =>
+        subjects.has(q.subject as Subject) &&
+        !!q.category &&
+        categories.has(q.category),
+    );
+
+    const tfItems: PracticeItem[] = inScope
+      .filter((q) => (q.statements?.length ?? 0) > 0)
+      .flatMap((q) =>
+        q.statements!.map((s) => ({
+          kind: "tf" as const,
+          key: `${q.round}-${q.subject}-${q.number}-${s.label}`,
+          round: q.round,
+          subject: q.subject as Subject,
+          category: q.category!,
+          questionNumber: q.number,
+          label: s.label,
+          text: s.text,
+          correct: s.correct,
+          correctedText: s.correctedText,
+        })),
+      );
+
+    const matchItems: PracticeItem[] = inScope
+      .filter((q) => (q.matches?.length ?? 0) > 0)
+      .map((q) => ({
+        kind: "choice" as const,
+        key: `${q.round}-${q.subject}-${q.number}`,
+        round: q.round,
+        subject: q.subject as Subject,
+        category: q.category!,
+        questionNumber: q.number,
+        text: q.text,
+        image: q.image,
+        choices: q.choices,
+        answerIndex: q.answer,
+        matches: q.matches,
+      }));
+
+    return [...tfItems, ...matchItems];
+  }, [questions, subjects, categories]);
 
   const pool = mode === "normal" ? normalPool : tfPool;
 
@@ -497,6 +516,22 @@ export default function PracticeApp({ questions }: { questions: FlatQuestion[] }
                 );
               })}
             </ul>
+            {selected !== null && current.matches && (
+              <div className="mb-6 rounded border border-zinc-200 bg-zinc-50 p-3 text-sm leading-relaxed dark:border-zinc-800 dark:bg-zinc-900">
+                <div className="mb-1 text-xs font-medium text-zinc-500">正しい組み合わせ</div>
+                <ul className="space-y-1">
+                  {current.matches.map((m) => (
+                    <li key={m.label}>
+                      ({m.label}) {m.item} ⇒{" "}
+                      <strong className="text-green-700 dark:text-green-400">
+                        {m.targetLabel}
+                        {m.targetText ? `:${m.targetText}` : ""}
+                      </strong>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
           </>
         ) : (
           <>

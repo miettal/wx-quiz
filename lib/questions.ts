@@ -8,6 +8,13 @@ export type Statement = {
   correctedText?: string;
 };
 
+export type Match = {
+  label: string;
+  item: string;
+  targetLabel: string;
+  targetText?: string;
+};
+
 export type Question = {
   number: number;
   text: string;
@@ -16,6 +23,7 @@ export type Question = {
   image?: string;
   category?: string;
   statements?: Statement[];
+  matches?: Match[];
 };
 
 export type QuestionSet = {

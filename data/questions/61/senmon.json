@@ -51,7 +51,12 @@
         "(a)イ (b)エ (c)オ"
       ],
       "answer": 1,
-      "category": "観測の成果の利用"
+      "category": "観測の成果の利用",
+      "matches": [
+        { "label": "a", "item": "ブリューワー分光光度計", "targetLabel": "ア", "targetText": "上空のオゾン量" },
+        { "label": "b", "item": "ドップラーレーダー", "targetLabel": "ウ", "targetText": "降水強度の分布、降水域における風の分布" },
+        { "label": "c", "item": "ドップラーライダー", "targetLabel": "エ", "targetText": "非降水時の風の分布や低層ウィンドシアー" }
+      ]
     },
     {
       "number": 4,
